@@ -1,0 +1,107 @@
+-- Tabela Usuario
+CREATE TABLE Usuario (
+    IDUsuario SERIAL PRIMARY KEY,
+    NomeUsuario VARCHAR(50) NOT NULL,
+    Senha VARCHAR(50) NOT NULL,
+    Salt VARCHAR(50) NOT NULL,
+    DataUltimaAlteracaoSenha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela Func_Educ
+CREATE TABLE Func_Educ (
+    IDFunc_Educ SERIAL PRIMARY KEY,
+    IDUsuario INT UNIQUE NOT NULL REFERENCES Usuario(IDUsuario)
+);
+
+-- Tabela Func_Jurid
+CREATE TABLE Func_Jurid (
+    IDFunc_Jurid SERIAL PRIMARY KEY,
+    IDUsuario INT UNIQUE NOT NULL REFERENCES Usuario(IDUsuario)
+);
+
+-- Tabela Empresa
+CREATE TABLE Empresa (
+    IDEmpresa SERIAL PRIMARY KEY,
+    CNPJ CHAR(14) UNIQUE NOT NULL,
+    RazaoSocial VARCHAR(150) NOT NULL,
+    Endereco_Empresa VARCHAR(300)
+);
+
+-- Tabela Docente
+CREATE TABLE Docente (
+    IDDocente SERIAL PRIMARY KEY,
+    IDUsuario INT UNIQUE NOT NULL REFERENCES Usuario(IDUsuario),
+    IDEmpresa INT NOT NULL REFERENCES Empresa(IDEmpresa),
+    CPF CHAR(11) UNIQUE NOT NULL,
+    Telefone VARCHAR(15),
+    Email VARCHAR(100),
+    EnderecoResidencial VARCHAR(300)
+);
+
+-- Tabela Disciplina
+CREATE TABLE Disciplina (
+    IDDisciplina SERIAL PRIMARY KEY,
+    Nome VARCHAR(50) NOT NULL,
+    ValorHoraAula DECIMAL(4, 2) NOT NULL
+);
+
+-- Tabela StatusContrato
+CREATE TABLE StatusContrato (
+    IDStatus SERIAL PRIMARY KEY,
+    Descricao VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- Inserção dos Status
+INSERT INTO StatusContrato (Descricao) VALUES
+('Pendente'),
+('Enviado'),
+('Assinado');
+
+-- Tabela SolicitacaoContrato
+CREATE TABLE SolicitacaoContrato (
+    IDSolicitacao SERIAL PRIMARY KEY,
+    IDDocente INT NOT NULL REFERENCES Docente(IDDocente),
+    IDDisciplina INT NOT NULL REFERENCES Disciplina(IDDisciplina),
+    CargaHoraria INT NOT NULL CHECK (CargaHoraria > 0),
+    DataInicio DATE NOT NULL,
+    DataFim DATE NOT NULL,
+    DataSolicitacao DATE DEFAULT CURRENT_DATE,
+    IDFunc_Educ INT NOT NULL REFERENCES Func_Educ(IDFunc_Educ), 
+    IDStatus INT NOT NULL REFERENCES StatusContrato(IDStatus)
+);
+
+-- Tabela Contrato
+CREATE TABLE Contrato (
+    IDContrato SERIAL PRIMARY KEY,
+    IDSolicitacaoContrato INT NOT NULL REFERENCES SolicitacaoContrato(IDSolicitacao),
+    DataGeracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    IDFuncionarioJuridico INT NOT NULL REFERENCES Func_Jurid(IDFunc_Jurid),
+    CaminhoArquivo VARCHAR(255) NOT NULL,
+    DataUltimaAlteracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Atualizar DataUltimaAlteracao na tabela Usuario
+CREATE OR REPLACE FUNCTION update_usuario_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.DataUltimaAlteracaoSenha = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER usuario_update_trigger
+BEFORE UPDATE ON Usuario
+FOR EACH ROW EXECUTE FUNCTION update_usuario_timestamp();
+
+-- Atualizar DataUltimaAlteracao na tabela Contrato
+CREATE OR REPLACE FUNCTION update_contrato_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.DataUltimaAlteracao = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER contrato_update_trigger
+BEFORE UPDATE ON Contrato
+FOR EACH ROW EXECUTE FUNCTION update_contrato_timestamp();
